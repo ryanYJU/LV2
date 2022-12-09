@@ -238,3 +238,50 @@ Store 서비스의 PolicyHandler.java
     HTTP/1.1 500     0.01 secs:     261 bytes ==> POST http://localhost:8081/order
 
 # Gateway / Ingress
+
+    포트번호를 다르게 구분하여 설정
+
+    spring:
+      profiles: default
+      cloud:
+        gateway:
+          routes:
+            - id: order
+              uri: http://localhost:8081
+              predicates:
+                - Path=/order/**, /payments/**, 
+            - id: store
+              uri: http://localhost:8082
+              predicates:
+                - Path=/ordermgmt/**, 
+            - id: rider
+              uri: http://localhost:8083
+              predicates:
+                - Path=/deliveries/**, 
+            - id: customer
+              uri: http://localhost:8084
+              predicates:
+                - Path=, /mypages/**
+
+    도커 설정
+    spring:
+      profiles: docker
+      cloud:
+        gateway:
+          routes:
+            - id: order
+              uri: http://order:8080
+              predicates:
+                - Path=/orders/**, /payments/**, 
+            - id: store
+              uri: http://store:8080
+              predicates:
+                - Path=/ordermgmt/**, 
+            - id: rider
+              uri: http://rider:8080
+              predicates:
+                - Path=/deliveries/**, 
+            - id: customer
+              uri: http://customer:8080
+              predicates:
+                - Path=, /mypages/**
