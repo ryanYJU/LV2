@@ -95,34 +95,33 @@ Pub. App서비스에서 결제까지 완료된 후에 ordered event 를 Publish.
 
 Sub. Store서비스에서 이벤트를 수신
 
-  @Service
-  @Transactional
-  public class PolicyHandler{
-      @Autowired OrderManagementRepository orderManagementRepository;
+    @Service
+    @Transactional
+    public class PolicyHandler{
+        @Autowired OrderManagementRepository orderManagementRepository;
 
-      @StreamListener(KafkaProcessor.INPUT)
-      public void whatever(@Payload String eventString){}
+        @StreamListener(KafkaProcessor.INPUT)
+        public void whatever(@Payload String eventString){}
 
-      @StreamListener(value=KafkaProcessor.INPUT, condition="headers['type']=='PaymentApproved'")
-      public void wheneverPaymentApproved_OrderReceive(@Payload PaymentApproved paymentApproved){
+        @StreamListener(value=KafkaProcessor.INPUT, condition="headers['type']=='PaymentApproved'")
+        public void wheneverPaymentApproved_OrderReceive(@Payload PaymentApproved paymentApproved){
 
-          PaymentApproved event = paymentApproved;
-          System.out.println("\n\n##### listener OrderReceive : " + paymentApproved + "\n\n");
-
-
-
-
-          // Sample Logic //
-          OrderManagement.orderReceive(event);
+            PaymentApproved event = paymentApproved;
+            System.out.println("\n\n##### listener OrderReceive : " + paymentApproved + "\n\n");
 
 
 
 
-      }
+            // Sample Logic //
+            OrderManagement.orderReceive(event);
+
+
+
+
+        }
 
 # CQRS
-![image](https://user-images.githubusercontent.com/48579352/206148411-1b3c03e1-fca7-485c-bbde-e255d116eb82.png)
-
+![image](https://user-images.githubusercontent.com/48579352/206613585-cc255131-c9b2-414c-986c-9811dc49e49d.png)
 
 # Compensation / Correlation
 
@@ -150,12 +149,27 @@ Sub. Store서비스에서 이벤트를 수신
 
 결제 Res
 
-  @FeignClient(name = "payment", url = "${api.url.pay}", fallback = PaymentInfoServiceImpl.class)
-  public interface PaymentInfoService {
+    @FeignClient(name = "payment", url = "${api.url.pay}", fallback = PaymentInfoServiceImpl.class)
+    public interface PaymentInfoService {
 
-      @RequestMapping(method = RequestMethod.POST, path = "/payment")
-      public void pay(@RequestBody PaymentInfo paymentInfo);
+        @RequestMapping(method = RequestMethod.POST, path = "/payment")
+        public void pay(@RequestBody PaymentInfo paymentInfo);
 
 # Circuit Breaker
+서비스를 호출 시 처리 기능에 강제로 딜레이를 준다.
+
+    @PrePersist
+    public void onPrePersist(){
+
+    ...    
+        try {
+            Thread.currentThread().sleep((long) (400 + Math.random() * 250));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+강제로 부하 발생을 시켜 확인한다.
+
+    - siege -c2 -t10S  -v --content-type "application/json" 'http://localhost:8081/order POST {"menu":"수제햄버거", "count":2, "total_amount":15000}'
 
 # Gateway / Ingress
