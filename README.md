@@ -74,6 +74,52 @@
 
 # Saga (Pub / Sub)
 
+Pub. App서비스에서 결제까지 완료된 후에 ordered event 를 Publish.
+
+    @PostPersist
+    public void onPostPersist(){
+        //Following code causes dependency to external APIs
+        // it is NOT A GOOD PRACTICE. instead, Event-Policy mapping is recommended.
+
+        lvpractice.external.PaymentInfo paymentInfo = new lvpracticelast.external.PaymentInfo();
+        // mappings goes here
+        paymentInfo.setOrderId(getId());
+
+        AppApplication.applicationContext.getBean(lvpractice.external.PaymentService.class).pay(paymentInfo);
+
+        setStatus("결제완료로 주문 접수");
+
+        Ordered ordered = new Ordered(this);
+        ordered.publishAfterCommit();
+    }
+
+Sub. Store서비스에서 이벤트를 수신
+
+  @Service
+  @Transactional
+  public class PolicyHandler{
+      @Autowired OrderManagementRepository orderManagementRepository;
+
+      @StreamListener(KafkaProcessor.INPUT)
+      public void whatever(@Payload String eventString){}
+
+      @StreamListener(value=KafkaProcessor.INPUT, condition="headers['type']=='PaymentApproved'")
+      public void wheneverPaymentApproved_OrderReceive(@Payload PaymentApproved paymentApproved){
+
+          PaymentApproved event = paymentApproved;
+          System.out.println("\n\n##### listener OrderReceive : " + paymentApproved + "\n\n");
+
+
+
+
+          // Sample Logic //
+          OrderManagement.orderReceive(event);
+
+
+
+
+      }
+
 # CQRS
 ![image](https://user-images.githubusercontent.com/48579352/206148411-1b3c03e1-fca7-485c-bbde-e255d116eb82.png)
 
@@ -81,6 +127,34 @@
 # Compensation / Correlation
 
 # Request / Response
+주문과 결제는 동기식으로 구성
+
+주문 Req
+
+    @PostPersist
+    public void onPostPersist(){
+        //Following code causes dependency to external APIs
+        // it is NOT A GOOD PRACTICE. instead, Event-Policy mapping is recommended.
+
+        lvpractice.external.PaymentInfo paymentInfo = new lvpracticelast.external.PaymentInfo();
+        // mappings goes here
+        paymentInfo.setOrderId(getId());
+
+        AppApplication.applicationContext.getBean(lvpractice.external.PaymentService.class).pay(paymentInfo);
+
+        setStatus("결제완료로 주문 접수");
+
+        Ordered ordered = new Ordered(this);
+        ordered.publishAfterCommit();
+    }
+
+결제 Res
+
+  @FeignClient(name = "payment", url = "${api.url.pay}", fallback = PaymentInfoServiceImpl.class)
+  public interface PaymentInfoService {
+
+      @RequestMapping(method = RequestMethod.POST, path = "/payment")
+      public void pay(@RequestBody PaymentInfo paymentInfo);
 
 # Circuit Breaker
 
