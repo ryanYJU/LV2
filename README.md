@@ -124,6 +124,38 @@ Sub. Store서비스에서 이벤트를 수신
 ![image](https://user-images.githubusercontent.com/48579352/206613585-cc255131-c9b2-414c-986c-9811dc49e49d.png)
 
 # Compensation / Correlation
+주문이 취소 되면서 Store 서비스의 orderCancel 이벤트를 사용하여 상태 처리를 한다.
+
+App 서비스
+
+    @PreRemove
+    public void onPreRemove(){
+        // 주문 취소 publish
+        OrderCanceled orderCanceled = new OrderCanceled(this);
+        orderCanceled.publishAfterCommit();
+    }
+    
+Store 서비스의 PolicyHandler.java
+
+    @StreamListener(value=KafkaProcessor.INPUT, condition="headers['type']=='PaymentCanceled'")
+    public void wheneverPaymentCanceled_OrderCancel(@Payload PaymentCanceled paymentCanceled){
+
+        PaymentCanceled event = paymentCanceled;
+        System.out.println("\n\n##### listener OrderCancel : " + paymentCanceled + "\n\n");
+
+
+        
+
+        // Sample Logic //
+        OrderManagement.orderCancel(event);
+        
+
+        
+
+    }
+
+
+
 
 # Request / Response
 주문과 결제는 동기식으로 구성
@@ -156,20 +188,53 @@ Sub. Store서비스에서 이벤트를 수신
         public void pay(@RequestBody PaymentInfo paymentInfo);
 
 # Circuit Breaker
-서비스를 호출 시 처리 기능에 강제로 딜레이를 준다.
 
-    @PrePersist
-    public void onPrePersist(){
+    server:
+      port: 8080
 
-    ...    
-        try {
-            Thread.currentThread().sleep((long) (400 + Math.random() * 250));
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
+    spring:
+      application:
+        name: order
+    ---
+
+    feign:
+      hystrix:
+        enabled: true
+
+    hystrix:
+      command:
+        default:
+          execution.isolation.thread.timeoutInMilliseconds: 700
 
 강제로 부하 발생을 시켜 확인한다.
 
     - siege -c2 -t10S  -v --content-type "application/json" 'http://localhost:8081/order POST {"menu":"수제햄버거", "count":2, "total_amount":15000}'
+    
+    ** SIEGE 4.0.4
+    ** Preparing 2 concurrent users for battle.
+    The server is now under siege...
+    HTTP/1.1 500     0.45 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.45 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.06 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.07 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.01 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.01 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.02 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.02 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.02 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.01 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.05 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.06 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.01 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.01 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.02 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.01 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.02 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.01 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.02 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.01 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.04 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.05 secs:     261 bytes ==> POST http://localhost:8081/order
+    HTTP/1.1 500     0.01 secs:     261 bytes ==> POST http://localhost:8081/order
 
 # Gateway / Ingress
